@@ -6,14 +6,48 @@ import numpy as np
 # Use low_memory=False to avoid dtype guessing issues
 file_path = "RNA_DNA_combine.csv"
 
+
+shuffle_cancer = pd.read_csv(file_path, delimiter=',', index_col=0, header=0)
+print( ' data size:',shuffle_cancer.shape)
 # Only load first 5 rows to inspect structure
 print("🔍 Reading first few lines to understand structure...")
-sample = pd.read_csv(file_path, nrows=5)
+sample = pd.read_csv(file_path, nrows=3)
 print(sample.head())
-print("\nColumns:", len(sample.columns))
-print(sample.columns[:20])  # preview first 20 columns
+sample.info()
+sample.head()
 
-# Efficiently load full data in chunks
+# # Split data sets into 3 parts : labels which is the first column and colummns that start with "?|", and the rest
+# label_cols = [col for col in sample.columns if col == sample.columns[0]]
+# dnamthylation_cols = [col for col in sample.columns if col.startswith("?|")]
+# gene_expression_cols = [col for col in sample.columns if col not in label_cols + dnamthylation_cols]
+
+# put the first 19028 in GE and the rest in DNA methylation
+gene_expression_cols = sample.columns[:19027].tolist()  
+dnamthylation_cols = sample.columns[19027:].tolist()
+
+print(f"length of dna mthylation columns:{len(dnamthylation_cols)}")
+
+# put the dna mthylation in a seprate csv file
+dna_methylation_data = sample[dnamthylation_cols]
+dna_methylation_data.to_csv("sample_DNA_methylation.csv", index=False)
+
+# print(f"\nLabel columns: {len(label_cols)}")
+# print (f"\nlength of dna mthylation columns:{len(dnamthylation_cols)}")
+# print(f"\ngene expression cols: {len(gene_expression_cols)}")
+""" print("\nColumns:", len(sample.columns))
+print(sample.columns[:20])  # preview first 20 columns """
+
+
+""" #Split DNA mthylation and Gene expression data 
+cpg_cols = []
+for col in sample.columns:
+
+
+# write the 5 extracted rows back in csv file 
+sample.to_csv("sample_RNA_DNA_combine.csv", index=False) """
+
+
+""" # Efficiently load full data in chunks
 print("\n📦 Counting rows (samples)...")
 total_rows = sum(1 for _ in open(file_path)) - 1
 print(f"Total samples (rows): {total_rows}")
@@ -64,3 +98,4 @@ plt.figure(figsize=(10,8))
 sns.heatmap(corr_sample, cmap="coolwarm", annot=False)
 plt.title("Correlation Heatmap (Sampled Features)")
 plt.show()
+ """
