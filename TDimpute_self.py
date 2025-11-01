@@ -11,17 +11,19 @@ def get_next_batch(dataset1, batch_size_1, step, ind):
     newdataset1 = dataset1[sel_ind, :]
     return newdataset1
 
+
+# Build a tf1 graph for a 2-layer (inputs--> 4000 unit ---> 19k units---> output) fully connected autoencoder model
 def train(drop_prob, dataset_train, dataset_test, sav=True, checkpoint_file='default.ckpt'):
     input_image = tf.placeholder(tf.float32, batch_shape_input, name='input_image')
-    is_training = tf.placeholder(tf.bool)
-    scale = 0.
+    is_training = tf.placeholder(tf.bool) # to control dropout
+    scale = 0. # for the L2 regularization
     with tf.variable_scope('autoencoder') as scope:
         fc_1 = tf.layers.dense(inputs=input_image, units=4000, kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=scale))
         fc_1_out = tf.nn.sigmoid(fc_1)
         fc_1_dropout = tf.layers.dropout(inputs=fc_1_out, rate=drop_prob, training=is_training)
-        fc_2_dropout = tf.layers.dense(inputs=fc_1_dropout, units=19027)  # 46744
+        fc_2_dropout = tf.layers.dense(inputs=fc_1_dropout, units=19027)  # 46744 (the original prediction)
         fc_2_out = tf.nn.sigmoid(fc_2_dropout)
-        reconstructed_image = fc_2_out  # fc_2_dropout
+        reconstructed_image = fc_2_out  # fc_2_dropout (the predictored gene expression values after normalization)
 
     original = tf.placeholder(tf.float32, batch_shape_output, name='original')
     loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(reconstructed_image, original))))
@@ -118,20 +120,22 @@ import sys
 print(sys.argv)
 
 # datadir = sys.argv[1] #e.g.,'/data0/zhoux'
-os.environ["CUDA_VISIBLE_DEVICES"] = sys.argv[1]
-cancer_names = [sys.argv[2]] #smaple size greater than 200
+os.environ["CUDA_VISIBLE_DEVICES"] = sys.argv[1] # set the GPU id
+cancer_names = [sys.argv[2]] #smaple size greater than 200 , take a cancer name as input (dont know what is its usage yet)
 # cancer_names = ['LUSC', 'KIRC', 'CESC', 'STAD', 'SARC', 'COAD','KIRP', 'LUAD', 'BLCA', 'BRCA','HNSC','LGG_','PRAD','THCA','SKCM', 'LIHC']
 full_dataset_path = sys.argv[3]
 imputed_dataset_path = sys.argv[4]
+datadir = os.path.dirname(os.path.abspath(full_dataset_path))
+
 
 sample_size = 5
-loss_list = np.zeros([16, 5, sample_size]);
-loss_summary = np.zeros([16, 5])
+loss_list = np.zeros([16, 5, sample_size]) # 16 cancers, 5 missing rates, sample_size repeats
+loss_summary = np.zeros([16, 5]) # 16 cancers, 5 missing rates
 cancer_c = 0
 for cancertype in cancer_names:
     perc = 0
     for missing_perc in [0.1,0.3,0.5,0.7,0.9]:
-        for sample_count in range(1,sample_size+1):
+        for sample_count in range(1,sample_size+1): # What is sample_count used for?
             # shuffle_cancer = pd.read_csv(datadir+'/full_datasets/' + cancertype + str(int(missing_perc * 100)) + '_' + str(sample_count) + '.csv',
             #     delimiter=',', index_col=0, header=0)
             shuffle_cancer = pd.read_csv(full_dataset_path, delimiter=',', index_col=0, header=0)
@@ -140,7 +144,7 @@ for cancertype in cancer_names:
             ## 16.5 is for gene expression normalization // linearly scaled to [0, 1], the same as the DNA methylation data (beta values)
             aa = np.concatenate((shuffle_cancer.values[:, :19027] / 16.5, shuffle_cancer.values[:, 19027:]), axis=1)
             shuffle_cancer = pd.DataFrame(aa, index=shuffle_cancer.index, columns=shuffle_cancer.columns)
-            RDNA = shuffle_cancer.values
+            RDNA = shuffle_cancer.values # RDNA is now a matrix contain just numeric value the value of feature j for sample i.
             test_data = RDNA[0:int(RDNA.shape[0] * missing_perc), :]
             train_data = RDNA[int(RDNA.shape[0] * missing_perc):, :]
             print('train datasize:', train_data.shape[0], ' test datasize: ', test_data.shape[0])
