@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-# Use low_memory=False to avoid dtype guessing issues
+
 file_path = "RNA_DNA_combine.csv"
 
 
-shuffle_cancer = pd.read_csv(file_path, delimiter=',', index_col=0, header=0)
+shuffle_cancer = pd.read_csv(file_path, delimiter=',', index_col=0, header=0, nrows=1000)
 print( ' data size:',shuffle_cancer.shape)
 # Only load first 5 rows to inspect structure
 print("🔍 Reading first few lines to understand structure...")
