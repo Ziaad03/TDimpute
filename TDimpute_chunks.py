@@ -26,7 +26,7 @@ def train(drop_prob, dataset_train, dataset_test, sav=True, checkpoint_file='def
         reconstructed_image = fc_2_out  # fc_2_dropout (the predictored gene expression values after normalization)
 
     original = tf.placeholder(tf.float32, batch_shape_output, name='original')
-    loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(reconstructed_image, original))))
+    loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(reconstructed_image, original)))) # RMSE loss
     l2_loss = tf.losses.get_regularization_loss()
     optimizer = tf.train.AdamOptimizer(lr).minimize(loss + l2_loss) # runs backpropagation and updates the weights
 
@@ -45,15 +45,17 @@ def train(drop_prob, dataset_train, dataset_test, sav=True, checkpoint_file='def
         dataset_size_train = dataset_train.shape[0]
         dataset_size_test = dataset_test.shape[0]
         print("Dataset size for training:", dataset_size_train)
-        print("Dataset size for test:", dataset_size_test)
-        num_iters = (num_epochs * dataset_size_train) // batch_size
-        print("Num iters:", num_iters)
+        print("Dataset size for test:", dataset_size_test)             
+        num_iters = (num_epochs * dataset_size_train) // batch_size  
+        print("Num iters:", num_iters)                                  
+                                                                           
+    
         ind_train = []
 
         # Generate for every epoch a random training samples,
         for i in range(num_epochs):
             ind_train = np.append(ind_train, np.random.permutation(np.arange(dataset_size_train)))
-        ind_train = np.asarray(ind_train).astype("int32")
+        ind_train = np.asarray(ind_train).astype("int32")  
 
         total_cost_train = 0.
         num_batchs = dataset_size_train // batch_size  # "//" => int()
@@ -131,29 +133,40 @@ full_dataset_path = sys.argv[3]
 imputed_dataset_path = sys.argv[4]
 datadir = os.path.dirname(os.path.abspath(full_dataset_path))
 
+def load_huge_csv(path):
+    chunks = pd.read_csv(path, chunksize=1000, index_col=0, header=0)
+    data = []
+    for chunk in chunks:
+        data.append(chunk.values.astype(np.float32))
+    return np.vstack(data)
 
 sample_size = 1 # was 5 
-loss_list = np.zeros([16, 5, sample_size]) # 16 cancers, 5 missing rates, sample_size repeats 
+loss_list = np.zeros([16, 5, sample_size]) # 16 cancers, 5 missing rates, sample_size repeats
 loss_summary = np.zeros([16, 5]) # 16 cancers, 5 missing rates
 cancer_c = 0
-for cancertype in cancer_names: 
+for cancertype in cancer_names:
     perc = 0
-    for missing_perc in [0.5]:   #  [0.1,0.3,0.5,0.7,0.9] # the percentage control the split between train and test data
+    for missing_perc in [0.1]:   #  [0.1,0.3,0.5,0.7,0.9] # the percentage control the split between train and test data
         for sample_count in range(1,sample_size+1): # What is sample_count used for?
             # shuffle_cancer = pd.read_csv(datadir+'/full_datasets/' + cancertype + str(int(missing_perc * 100)) + '_' + str(sample_count) + '.csv',
             #     delimiter=',', index_col=0, header=0)
-            shuffle_cancer = pd.read_csv(full_dataset_path, delimiter=',', index_col=0, header=0, nrows=1000)
+            # shuffle_cancer = pd.read_csv(full_dataset_path, delimiter=',', index_col=0, header=0, nrows=1000)
 
-            # loop around 4 times getting chunk of 2k rows and do normalization and concateate
+            # # loop around 4 times getting chunk of 2k rows and do normalization and concateate
             
-            print('name:', cancertype, ' missing rate:', missing_perc, ' data size:',shuffle_cancer.shape)
-            ########################Create set for training and testing
-            ## 16.5 is for gene expression normalization // linearly scaled to [0, 1], the same as the DNA methylation data (beta values)
-            aa = np.concatenate((shuffle_cancer.values[:, :19027] / 16.5, shuffle_cancer.values[:, 19027:]), axis=1)
-            shuffle_cancer = pd.DataFrame(aa, index=shuffle_cancer.index, columns=shuffle_cancer.columns)
-            RDNA = shuffle_cancer.values # RDNA is now a matrix contain just numeric value the value of feature j for sample i.
+            # print('name:', cancertype, ' missing rate:', missing_perc, ' data size:',shuffle_cancer.shape)
+            # ########################Create set for training and testing
+            # ## 16.5 is for gene expression normalization // linearly scaled to [0, 1], the same as the DNA methylation data (beta values)
+            # aa = np.concatenate((shuffle_cancer.values[:, :19027] / 16.5, shuffle_cancer.values[:, 19027:]), axis=1)
+            # shuffle_cancer = pd.DataFrame(aa, index=shuffle_cancer.index, columns=shuffle_cancer.columns)
+            # RDNA = shuffle_cancer.values # RDNA is now a matrix contain just numeric value the value of feature j for sample i.
+            print('Loading data from:', full_dataset_path)
+            RDNA = load_huge_csv(full_dataset_path)
+            print('Data loaded. Shape:', RDNA.shape)
+            # then normalize only once
+            RDNA[:, :19027] /= 16.5
             test_data = RDNA[0:int(RDNA.shape[0] * missing_perc), :]
-            train_data = RDNA[int(RDNA.shape[0] * missing_perc):, :] 
+            train_data = RDNA[int(RDNA.shape[0] * missing_perc):, :]
             print('train datasize:', train_data.shape[0], ' test datasize: ', test_data.shape[0])
 
             num_epochs = 100
@@ -168,12 +181,12 @@ for cancertype in cancer_names:
                                                                                     sav=True, checkpoint_file=datadir +"/checkpoints/"+ cancertype+str(missing_perc*100)+'_'+str(sample_count)+ '_imputationmodel.ckpt')
 
             imputed_data = np.concatenate([reconstruct*16.5, train_data[:, :19027]*16.5], axis=0)
-            RNA_txt = pd.DataFrame(imputed_data[:, :19027], index=shuffle_cancer.index,
-                                   columns=shuffle_cancer.columns[:19027])
+            #RNA_txt = pd.DataFrame(imputed_data[:, :19027], index=shuffle_cancer.index,
+                                  # columns=shuffle_cancer.columns[:19027]) # shuffle cancer not defined here
             # RNA_txt.to_csv(datadir+'/imputed_data/TDimpute_without_tf_'+cancertype+str(missing_perc*100)+'_'+str(sample_count)+'.csv')
-            RNA_txt.to_csv(imputed_dataset_path)
+            #RNA_txt.to_csv(imputed_dataset_path)
 
-            loss_list[cancer_c, perc, sample_count-1] = loss_test #loss_val_list_test[-1] 
+            loss_list[cancer_c, perc, sample_count-1] = loss_test #loss_val_list_test[-1]
 
         perc = perc + 1
         np.set_printoptions(precision=3)

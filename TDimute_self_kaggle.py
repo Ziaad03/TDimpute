@@ -133,10 +133,10 @@ datadir = os.path.dirname(os.path.abspath(full_dataset_path))
 
 
 sample_size = 1 # was 5 
-loss_list = np.zeros([16, 5, sample_size]) # 16 cancers, 5 missing rates, sample_size repeats 
+loss_list = np.zeros([16, 5, sample_size]) # 16 cancers, 5 missing rates, sample_size repeats
 loss_summary = np.zeros([16, 5]) # 16 cancers, 5 missing rates
 cancer_c = 0
-for cancertype in cancer_names: 
+for cancertype in cancer_names:
     perc = 0
     for missing_perc in [0.5]:   #  [0.1,0.3,0.5,0.7,0.9] # the percentage control the split between train and test data
         for sample_count in range(1,sample_size+1): # What is sample_count used for?
@@ -153,7 +153,7 @@ for cancertype in cancer_names:
             shuffle_cancer = pd.DataFrame(aa, index=shuffle_cancer.index, columns=shuffle_cancer.columns)
             RDNA = shuffle_cancer.values # RDNA is now a matrix contain just numeric value the value of feature j for sample i.
             test_data = RDNA[0:int(RDNA.shape[0] * missing_perc), :]
-            train_data = RDNA[int(RDNA.shape[0] * missing_perc):, :] 
+            train_data = RDNA[int(RDNA.shape[0] * missing_perc):, :]
             print('train datasize:', train_data.shape[0], ' test datasize: ', test_data.shape[0])
 
             num_epochs = 100
@@ -173,7 +173,7 @@ for cancertype in cancer_names:
             # RNA_txt.to_csv(datadir+'/imputed_data/TDimpute_without_tf_'+cancertype+str(missing_perc*100)+'_'+str(sample_count)+'.csv')
             RNA_txt.to_csv(imputed_dataset_path)
 
-            loss_list[cancer_c, perc, sample_count-1] = loss_test #loss_val_list_test[-1] 
+            loss_list[cancer_c, perc, sample_count-1] = loss_test #loss_val_list_test[-1]
 
         perc = perc + 1
         np.set_printoptions(precision=3)
